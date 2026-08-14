@@ -4,7 +4,10 @@
   "description": "Bigfish — Electron desktop shell for DeepSeek Harness",
   "private": true,
   "main": "main.js",
-  "author": "Bigfish",
+  "author": {
+    "name": "Bigfish",
+    "email": "643820309@qq.com"
+  },
   "license": "MIT",
   "scripts": {
     "start": "electron .",
