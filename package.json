@@ -8,6 +8,7 @@
     "name": "Bigfish",
     "email": "643820309@qq.com"
   },
+  "homepage": "https://github.com/turtle2209/Bigfish",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
