@@ -149,7 +149,21 @@ function waitForReady(p, timeoutMs = READY_TIMEOUT_MS) {
   });
 }
 
+/** Kill any leftover backend processes from a previous session (crash / force quit). */
+function cleanupStaleDsh() {
+  try {
+    if (process.platform === 'win32') {
+      const script = "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*dsh/lib/bin.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }";
+      spawn('powershell', ['-NoProfile', '-Command', script], { stdio: 'ignore', windowsHide: true });
+    } else {
+      spawn('pkill', ['-f', 'dsh/lib/bin.js'], { stdio: 'ignore' });
+    }
+  } catch { /* best effort */ }
+}
+
 async function startDsh() {
+  cleanupStaleDsh();
+  await new Promise((r) => setTimeout(r, 1500)); // 给清理留一点时间
   port = await findFreePort();
   const rt = resolveRuntime();
   const args = [...rt.args, '--profile', 'web', '--host', HOST, '--port', String(port)];
@@ -697,10 +711,24 @@ if (!gotLock) {
       createWindow();
       console.log('[bigfish] window created');
     } catch (err) {
-      const message = err && err.message ? err.message : String(err);
-      dialog.showErrorBox(APP_NAME, `Failed to start the DeepSeek Harness backend:\n\n${message}`);
-      app.quit();
-      return;
+      // 第一次失败：清理残留后重试一次（常见于上次异常退出导致端口/进程残留）
+      try {
+        stopDsh();
+        cleanupStaleDsh();
+        await new Promise((r) => setTimeout(r, 1500));
+        await startDsh();
+        console.log(`[bigfish] backend ready (retry) at http://${HOST}:${port}`);
+        createWindow();
+        console.log('[bigfish] window created (retry)');
+      } catch (err2) {
+        const message = err2 && err2.message ? err2.message : String(err2);
+        dialog.showErrorBox(
+          APP_NAME,
+          `Failed to start the DeepSeek Harness backend:\n\n${message}\n\n提示：如果这是重启后出现的问题，请先在任务管理器结束所有 Bigfish / node 进程后再重试。`,
+        );
+        app.quit();
+        return;
+      }
     }
 
     createTray();
