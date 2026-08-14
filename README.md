@@ -2,7 +2,7 @@
 
 > ⚠️ **非官方声明**：Bigfish 是独立的第三方社区项目，基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT 协议）构建，**非 DeepSeek 官方出品**，与 DeepSeek 无隶属、赞助或背书关系。
 
-Bigfish 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 Electron 桌面版：把 `dsh web` 的本地后端 + React UI 包进一个原生窗口，并加上系统托盘、全局快捷键、桌面萌宠、新手向导等桌面原生能力，免去开终端、记端口、开浏览器。
+Bigfish 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 Electron 桌面版：把 `dsh web` 的本地后端 + React UI 包进一个原生窗口，并加上系统托盘、全局快捷键、桌面萌宠、新手向导等桌面原生能力，免去开终端、记端口、开浏览器。欢迎大家来fork，来开发更多的功能，现在只是一些很基础的功能，期待大家的反响。
 
 ## 桌面功能
 
