@@ -1,0 +1,14 @@
+node_modules/
+dist/
+node-runtime/
+electron-dist/
+.cache/
+.npm-cache/
+.electron-cache/
+.electron-builder-cache/
+.dsh-home*/
+# 编译好的安装包（>100MB，走 GitHub Releases 分发，不提交到 git）
+release/
+*.log
+.DS_Store
+dsh-bundle/node_modules/

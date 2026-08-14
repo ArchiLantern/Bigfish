@@ -1,0 +1,96 @@
+{
+  "name": "bigfish",
+  "version": "0.1.0",
+  "description": "Bigfish — Electron desktop shell for DeepSeek Harness",
+  "private": true,
+  "main": "main.js",
+  "author": "Bigfish",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux",
+    "icons": "node make-icons.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.bigfish.app",
+    "productName": "Bigfish",
+    "directories": {
+      "output": "dist"
+    },
+    "asar": false,
+    "npmRebuild": false,
+    "afterPack": "afterPack.js",
+    "files": [
+      "**/*",
+      "!node_modules/**",
+      "!dsh-bundle/**",
+      "!electron-dist/**",
+      "!.npm-cache/**",
+      "!.electron-cache/**",
+      "!.electron-builder-cache/**",
+      "!.dsh-home*/**",
+      "!node-runtime/**",
+      "!gitpush/**",
+      "!probe-electron.js",
+      "!download-electron.js",
+      "!download-node.js",
+      "!make-icons.js",
+      "!afterPack.js",
+      "!remove-pet-bg.js",
+      "!analyze-pet.js",
+      "!update-pet-frames.js",
+      "!f00eacea082fad95a74d30b4206e1954.jpg",
+      "!README.md",
+      "!.gitignore"
+    ],
+    "extraResources": [
+      {
+        "from": "node-runtime",
+        "to": "node-runtime"
+      },
+      {
+        "from": "dsh-bundle/node_modules",
+        "to": "dsh/node_modules"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "shortcutName": "Bigfish"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "build/icon.png"
+    }
+  }
+}
