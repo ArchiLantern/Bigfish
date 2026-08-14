@@ -62,24 +62,29 @@ window.petAPI.onSay((msg) => {
 });
 window.petAPI.onState((s) => setState(s));
 
-// Click-through: only the pet image and the visible bubble capture the mouse;
-// the transparent surroundings pass clicks through to the desktop.
-let lastInteractive = false;
-function isInteractivePoint(x, y) {
-  const r = img.getBoundingClientRect();
-  if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
-  if (bubble.classList.contains('show')) {
-    const br = bubble.getBoundingClientRect();
-    if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) return true;
+// 点击穿透只在 Windows 上可靠；Linux 上开启会导致整个桌宠点不到。
+// 用 navigator.platform 判断（渲染进程里拿不到 process.platform）
+const isWindows = /Win/i.test(navigator.platform || '');
+if (isWindows) {
+  // Click-through: only the pet image and the visible bubble capture the mouse;
+  // the transparent surroundings pass clicks through to the desktop.
+  let lastInteractive = false;
+  function isInteractivePoint(x, y) {
+    const r = img.getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+    if (bubble.classList.contains('show')) {
+      const br = bubble.getBoundingClientRect();
+      if (x >= br.left && x <= br.right && y >= br.top && y <= br.bottom) return true;
+    }
+    return false;
   }
-  return false;
+  window.addEventListener('mousemove', (e) => {
+    const interactive = isInteractivePoint(e.clientX, e.clientY);
+    if (interactive !== lastInteractive) {
+      lastInteractive = interactive;
+      window.petAPI.setIgnoreMouse(!interactive);
+    }
+  });
 }
-window.addEventListener('mousemove', (e) => {
-  const interactive = isInteractivePoint(e.clientX, e.clientY);
-  if (interactive !== lastInteractive) {
-    lastInteractive = interactive;
-    window.petAPI.setIgnoreMouse(!interactive);
-  }
-});
 
 setState('idle');

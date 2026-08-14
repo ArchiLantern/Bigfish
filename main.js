@@ -461,6 +461,7 @@ function createWindow() {
 }
 
 function toggleMainWindow() {
+  ensurePet();
   if (!mainWindow) { createWindow(); return; }
   if (mainWindow.isVisible()) mainWindow.hide();
   else { mainWindow.show(); mainWindow.focus(); }
@@ -490,9 +491,19 @@ function createPetWindow() {
     },
   });
   petWindow.setAlwaysOnTop(true, 'floating');
-  petWindow.setIgnoreMouseEvents(true, { forward: true });
+  // 点击穿透只在 Windows 上可靠；Linux 上开启会导致桌宠点不到
+  if (process.platform === 'win32') {
+    petWindow.setIgnoreMouseEvents(true, { forward: true });
+  }
   petWindow.loadFile(path.join(__dirname, 'pet.html'));
   petWindow.on('closed', () => { petWindow = null; });
+}
+
+/** 桌宠启用但窗口没了时，重建它（解决关窗后桌宠消失）。 */
+function ensurePet() {
+  if (settings.petEnabled && (!petWindow || petWindow.isDestroyed())) {
+    createPetWindow();
+  }
 }
 
 function destroyPetWindow() {
@@ -747,6 +758,7 @@ if (!gotLock) {
     handleOpenArg(process.argv);
 
     app.on('activate', () => {
+      ensurePet();
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
   });
