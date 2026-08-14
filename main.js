@@ -185,9 +185,45 @@ function notify(title, body) {
   }
 }
 
+const PET_QUOTES = [
+  '要帮忙吗？说句话就行~',
+  '我可以帮你做 PPT 哦',
+  '作业写完了吗？',
+  '查资料、写报告，找我！',
+  '今天也要加油鸭',
+  '记得喝口水休息一下~',
+  '有不懂的尽管问我',
+  '文档总结、翻译、写作，我都行~',
+];
+
 function petSay(msg) {
   if (petWindow && !petWindow.isDestroyed()) {
     petWindow.webContents.send('pet-say', msg);
+  }
+}
+
+function schedulePetChatter() {
+  clearTimeout(chatterTimer);
+  chatterTimer = setTimeout(() => {
+    if (petWindow && !petWindow.isDestroyed() && petState === 'idle') {
+      petSay(PET_QUOTES[Math.floor(Math.random() * PET_QUOTES.length)]);
+    }
+    schedulePetChatter();
+  }, 120000 + Math.random() * 180000);
+}
+
+function uninstall() {
+  if (!app.isPackaged) {
+    dialog.showMessageBox({ type: 'info', title: APP_NAME, message: '卸载功能只在安装版可用', detail: '请安装打包好的 Bigfish 后再使用卸载。' });
+    return;
+  }
+  const uninstaller = path.join(path.dirname(process.execPath), 'Uninstall Bigfish.exe');
+  if (fs.existsSync(uninstaller)) {
+    quitting = true;
+    spawn(uninstaller, [], { detached: true, stdio: 'ignore' });
+    setTimeout(() => app.quit(), 800);
+  } else {
+    shell.openExternal('ms-settings:appsfeatures');
   }
 }
 
@@ -407,13 +443,15 @@ let wanderTimer = null;
 let sleepTimer = null;
 let eatTimer = null;
 let moveTimer = null;
+let chatterTimer = null;
 
 function clearPetTimers() {
   clearTimeout(wanderTimer);
   clearTimeout(sleepTimer);
   clearTimeout(eatTimer);
+  clearTimeout(chatterTimer);
   clearInterval(moveTimer);
-  wanderTimer = sleepTimer = eatTimer = moveTimer = null;
+  wanderTimer = sleepTimer = eatTimer = moveTimer = chatterTimer = null;
 }
 
 function setPetState(state) {
@@ -505,6 +543,7 @@ function rebuildTrayMenu() {
       ],
     },
     { type: 'separator' },
+    { label: '卸载 Bigfish', click: () => uninstall() },
     { label: '退出', click: () => { quitting = true; app.quit(); } },
   ]);
   tray.setContextMenu(menu);
@@ -619,6 +658,7 @@ if (!gotLock) {
       createPetWindow();
       scheduleWander();
       scheduleSleep();
+      schedulePetChatter();
     }
     if (settings.launchAtLogin) setAutoStart(true);
     if (!settings.onboardingDone) createWelcomeWindow();
