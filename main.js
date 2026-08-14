@@ -26,6 +26,7 @@ const { spawn } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
 const http = require('node:http');
+const https = require('node:https');
 const fs = require('node:fs');
 const os = require('node:os');
 
@@ -33,6 +34,9 @@ const APP_NAME = 'Bigfish';
 const HOST = '127.0.0.1';
 const READY_TIMEOUT_MS = 90 * 1000;
 const IDLE_NOTIFY_MS = 30 * 1000; // backend quiet for this long after activity => "done"
+
+// 检查更新：从 latest.json 读取最新版本（方法二，启动时查一次）
+const UPDATE_JSON_URL = 'https://raw.githubusercontent.com/turtle2209/Bigfish/main/latest.json';
 
 /** @type {import('node:child_process').ChildProcess | null} */
 let dshProcess = null;
@@ -225,6 +229,54 @@ function uninstall() {
   } else {
     shell.openExternal('ms-settings:appsfeatures');
   }
+}
+
+// ---------------------------------------------------------------------------
+// 检查更新（方法二）：启动时拉取 latest.json，发现新版本就提示下载
+// ---------------------------------------------------------------------------
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(Number);
+  const pb = String(b).split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0;
+    const y = pb[i] || 0;
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+
+function checkForUpdates() {
+  if (!app.isPackaged) return; // 开发模式不检查
+  const req = https.get(UPDATE_JSON_URL, { timeout: 10000 }, (res) => {
+    if (res.statusCode !== 200) {
+      res.resume();
+      return;
+    }
+    let body = '';
+    res.on('data', (c) => { body += c; });
+    res.on('end', () => {
+      try {
+        const info = JSON.parse(body);
+        const latest = String(info.version || '');
+        const current = app.getVersion();
+        if (latest && compareVersions(latest, current) > 0) {
+          const url = (info.urls && info.urls[process.platform]) || info.url;
+          const choice = dialog.showMessageBoxSync({
+            type: 'info',
+            title: APP_NAME,
+            message: `发现新版本 v${latest}`,
+            detail: info.note || '有新版本可用，是否去下载？',
+            buttons: ['去下载', '以后再说'],
+            defaultId: 0,
+          });
+          if (choice === 0 && url) shell.openExternal(url);
+        }
+      } catch { /* JSON 解析失败就忽略 */ }
+    });
+  });
+  req.on('error', () => { /* 网络失败就静默 */ });
+  req.setTimeout(10000, () => { req.destroy(); });
 }
 
 // Heuristic "task completed" detector: watch DSH_HOME (excluding the static
@@ -654,6 +706,7 @@ if (!gotLock) {
     createTray();
     registerShortcuts();
     startCompletionWatcher();
+    setTimeout(checkForUpdates, 5000);
     if (settings.petEnabled) {
       createPetWindow();
       scheduleWander();

@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "note": "欢迎使用 Bigfish！",
+  "urls": {
+    "win32": "https://github.com/turtle2209/Bigfish/releases/download/v0.1.0/Bigfish%20Setup%200.1.0.exe",
+    "darwin": "https://github.com/turtle2209/Bigfish/releases/download/v0.1.0/Bigfish-0.1.0.dmg",
+    "linux": "https://github.com/turtle2209/Bigfish/releases/download/v0.1.0/Bigfish-0.1.0.AppImage"
+  }
+}
