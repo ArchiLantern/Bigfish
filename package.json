@@ -75,6 +75,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
+      "include": "build/installer.nsh",
       "shortcutName": "Bigfish"
     },
     "mac": {
