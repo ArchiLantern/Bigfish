@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 安装 app 的开发依赖（electron / electron-builder）
+      - name: Install app deps
+        run: npm install
+
+      # 安装后端生产依赖（dsh-bundle）
+      - name: Install dsh bundle
+        run: |
+          cd dsh-bundle
+          npm install --omit=dev
+
+      # 准备各平台的 node-runtime（复制 runner 自带的 Node 二进制）
+      - name: Prepare node-runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p node-runtime
+          cp "$(which node)" node-runtime/node.exe
+
+      - name: Prepare node-runtime (macOS/Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p node-runtime
+          cp "$(which node)" node-runtime/node
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: npm run dist:win
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: npm run dist:mac
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: npm run dist:linux
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
