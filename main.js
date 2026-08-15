@@ -204,14 +204,31 @@ function notify(title, body) {
 }
 
 const PET_QUOTES = [
-  '要帮忙吗？说句话就行~',
-  '我可以帮你做 PPT 哦',
-  '作业写完了吗？',
-  '查资料、写报告，找我！',
-  '今天也要加油鸭',
-  '记得喝口水休息一下~',
-  '有不懂的尽管问我',
-  '文档总结、翻译、写作，我都行~',
+  // 人设·打招呼
+  '我是深海里的鲸鱼公主，很高兴见到你~',
+  '欢迎回来，我的小伙伴！',
+  '鲸鱼公主来啦，今天也要一起加油哦！',
+  '深海那么大，但我只想陪你~',
+  // 人设·撒娇/互动
+  '哼，都不理我，我要吐泡泡了~',
+  '抱抱我嘛，我可是会喷水的公主！',
+  '你忙的时候，我会乖乖在旁边看着你~',
+  '我的尾巴会发光，但只有你才看得到哦~',
+  // 趣味·小知识（鲸鱼相关）
+  '小知识：蓝鲸的心跳每分钟只有 6 次哦~',
+  '你知道吗？鲸鱼其实是哺乳动物，不是鱼！',
+  '鲸鱼唱歌能传 1600 公里远，我的歌声呢~',
+  '座头鲸会跳出海面，像是在跳芭蕾~',
+  '小知识：抹香鲸可以潜水 90 分钟不上来！',
+  // 趣味·日常生活
+  '要不要我帮你把今天的任务列个清单？',
+  '查资料、写报告、做 PPT，说一声就行~',
+  '记得喝口水休息一下，别太累啦！',
+  '作业写完记得检查一遍哦~',
+  // 加油打气
+  '今天也要元气满满！',
+  '你已经很棒了，剩下的事交给我！',
+  '别怕麻烦，我一直都在~',
 ];
 
 function petSay(msg) {
@@ -227,7 +244,7 @@ function schedulePetChatter() {
       petSay(PET_QUOTES[Math.floor(Math.random() * PET_QUOTES.length)]);
     }
     schedulePetChatter();
-  }, 120000 + Math.random() * 180000);
+  }, 90000); // 固定 1.5 分钟说一句
 }
 
 function uninstall() {
@@ -476,8 +493,8 @@ function toggleMainWindow() {
 function createPetWindow() {
   if (petWindow && !petWindow.isDestroyed()) { petWindow.show(); return; }
   petWindow = new BrowserWindow({
-    width: 180,
-    height: 200,
+    width: 220,
+    height: 210,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -622,21 +639,32 @@ function applyBackground() {
     try { mainWindow.webContents.removeInsertedCSS(bgCssKey); } catch { /* ignore */ }
     bgCssKey = null;
   }
-  const img = backgroundImagePath().replace(/\\/g, '/');
+  let dataUrl = '';
+  try {
+    const b64 = fs.readFileSync(backgroundImagePath()).toString('base64');
+    dataUrl = `data:image/jpeg;base64,${b64}`;
+  } catch { /* 读取失败则用纯色 */ }
   const css = `
-    html, body { background-color: #0b0b0f !important; }
-    body::before {
-      content: '' !important;
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 0 !important;
-      background-image: url('file:///${img}') !important;
+    html {
+      background-image: url('${dataUrl}') !important;
       background-size: cover !important;
       background-position: center !important;
-      opacity: 0.30 !important;
-      pointer-events: none !important;
+      background-repeat: no-repeat !important;
     }
-    #root { position: relative !important; z-index: 1 !important; }
+    /* 深色模式 */
+    body[data-ds-dark-theme] { background-color: rgba(21, 21, 23, 0.72) !important; }
+    body[data-ds-dark-theme] [class*="_sidebarCol"] { background-color: rgba(27, 27, 28, 0.80) !important; }
+    body[data-ds-dark-theme] [class*="_frame"],
+    body[data-ds-dark-theme] [class*="_root"],
+    body[data-ds-dark-theme] [class*="_centerCol"],
+    body[data-ds-dark-theme] [class*="_scrollBody"] { background-color: transparent !important; }
+    /* 浅色模式 */
+    body:not([data-ds-dark-theme]) { background-color: rgba(255, 255, 255, 0.75) !important; }
+    body:not([data-ds-dark-theme]) [class*="_sidebarCol"] { background-color: rgba(244, 244, 246, 0.85) !important; }
+    body:not([data-ds-dark-theme]) [class*="_frame"],
+    body:not([data-ds-dark-theme]) [class*="_root"],
+    body:not([data-ds-dark-theme]) [class*="_centerCol"],
+    body:not([data-ds-dark-theme]) [class*="_scrollBody"] { background-color: transparent !important; }
   `;
   mainWindow.webContents.insertCSS(css).then((key) => { bgCssKey = key; }).catch(() => {});
 }
@@ -860,6 +888,11 @@ if (!gotLock) {
   let petDragStartPos = null;
   ipcMain.on('pet-drag-start', (_e, { x, y }) => {
     if (!petWindow) return;
+    // 用户开始拖动：立即停掉走动动画，避免瞬移
+    if (moveTimer) { clearInterval(moveTimer); moveTimer = null; }
+    if (petState === 'walk-left' || petState === 'walk-right') setPetState('idle');
+    // 停下后重新安排下一次散步（不阻断后续走动）
+    scheduleWander();
     petDragStartScreen = { x, y };
     petDragStartPos = petWindow.getPosition();
   });
