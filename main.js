@@ -457,6 +457,9 @@ function createWindow() {
     }
   });
 
+  // 页面加载完成后注入半透明背景
+  mainWindow.webContents.on('did-finish-load', () => applyBackground());
+
   mainWindow.loadURL(`http://${HOST}:${port}`);
 }
 
@@ -602,11 +605,74 @@ function createTray() {
   rebuildTrayMenu();
 }
 
+// ---------------------------------------------------------------------------
+// 背景图（默认 + 用户自定义）
+// ---------------------------------------------------------------------------
+let bgCssKey = null;
+
+function backgroundImagePath() {
+  const custom = path.join(app.getPath('userData'), 'custom-background.jpg');
+  return fs.existsSync(custom) ? custom : path.join(__dirname, 'assets', 'background.jpg');
+}
+
+/** 往主窗口注入背景样式（半透明背景图，内容在上层可读）。 */
+function applyBackground() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (bgCssKey) {
+    try { mainWindow.webContents.removeInsertedCSS(bgCssKey); } catch { /* ignore */ }
+    bgCssKey = null;
+  }
+  const img = backgroundImagePath().replace(/\\/g, '/');
+  const css = `
+    html, body { background-color: #0b0b0f !important; }
+    body::before {
+      content: '' !important;
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 0 !important;
+      background-image: url('file:///${img}') !important;
+      background-size: cover !important;
+      background-position: center !important;
+      opacity: 0.30 !important;
+      pointer-events: none !important;
+    }
+    #root { position: relative !important; z-index: 1 !important; }
+  `;
+  mainWindow.webContents.insertCSS(css).then((key) => { bgCssKey = key; }).catch(() => {});
+}
+
+/** 让用户选一张图作为自定义背景。 */
+async function chooseBackground() {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择背景图片',
+    filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || !result.filePaths[0]) return;
+  try {
+    fs.copyFileSync(result.filePaths[0], path.join(app.getPath('userData'), 'custom-background.jpg'));
+    applyBackground();
+    notify(APP_NAME, '背景已更换');
+  } catch (err) {
+    console.error('[bigfish] 更换背景失败:', err);
+  }
+}
+
+/** 恢复默认背景。 */
+function resetBackground() {
+  try { fs.unlinkSync(path.join(app.getPath('userData'), 'custom-background.jpg')); } catch { /* 没有自定义背景 */ }
+  applyBackground();
+  notify(APP_NAME, '已恢复默认背景');
+}
+
 function rebuildTrayMenu() {
   if (!tray) return;
   const menu = Menu.buildFromTemplate([
     { label: '显示 / 隐藏 Bigfish', click: () => toggleMainWindow() },
     { label: '新手向导（设置 API Key）', click: () => createWelcomeWindow() },
+    { type: 'separator' },
+    { label: '更换背景', click: () => chooseBackground() },
+    { label: '恢复默认背景', click: () => resetBackground() },
     { type: 'separator' },
     { label: '桌面萌宠', type: 'checkbox', checked: settings.petEnabled, click: (item) => setPetEnabled(item.checked) },
     { label: '任务完成时通知', type: 'checkbox', checked: settings.notifyOnComplete, click: (item) => setNotify(item.checked) },
