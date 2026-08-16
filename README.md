@@ -122,7 +122,7 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 
 **替换成自己的萌宠形象**：直接把 `assets/pet/` 里的 PNG 换成你的角色帧即可（保持文件名对应状态）。若原图是白底 JPG，可用 `node remove-pet-bg.js` 抠背景。
 
-打包时 `afterPack.js` 会用 `build/rcedit-x64.exe` 把图标和版本信息嵌入 exe（绕开 electron-builder 内置 winCodeSign 在 Windows 上因 macOS dylib 符号链接权限失败的问题，见 [electron-builder#8149](https://github.com/electron-userland/electron-builder/issues/8149)）。
+打包时 electron-builder（≥26）用内置的 `resedit`（纯 JS PE 资源编辑）自动把图标和版本信息写入 exe——旧版需要 winCodeSign 归档（含 macOS dylib 符号链接，Windows 上解压需开发者模式，见 [electron-builder#8149](https://github.com/electron-userland/electron-builder/issues/8149)），该问题在新版已修复，无需任何钩子。
 
 ## 直接下载安装包（免编译）
 
@@ -140,7 +140,6 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 ├── main.js            # Electron 主进程：后端 + 托盘 + 快捷键 + 萌宠 + 向导 + 通知
 ├── pet.html / pet.js / pet-preload.js  # 桌面萌宠（透明悬浮窗 + 动画 + 点击穿透）
 ├── welcome.html / welcome.js / welcome-preload.js  # 新手向导
-├── afterPack.js       # 打包后钩子：给 exe 嵌入图标/版本信息
 ├── make-icons.js      # 图标生成脚本（npm run icons）
 ├── remove-pet-bg.js   # 萌宠抠背景脚本
 ├── update-pet-frames.js # 萌宠帧缩放脚本
@@ -149,7 +148,7 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 ├── package.json       # 依赖 + electron-builder 打包配置（win/mac/linux）
 ├── dsh-bundle/        # 后端生产依赖清单（打包时 npm install）
 ├── bundled-skills/    # 预装技能
-├── build/             # 图标源文件 + rcedit-x64.exe
+├── build/             # 图标源文件 + NSIS 安装器脚本
 └── assets/            # 运行时图标 + 萌宠动画帧
 ```
 

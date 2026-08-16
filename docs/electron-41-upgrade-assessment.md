@@ -136,6 +136,7 @@ Electron 官方支持的环境变量：设置为 `1` 后，**Electron 可执行�
 2. **用户 `~/.dsh` profile 引用外部插件会拖垮后端**：本机 `profiles/web/package.json` 的 bundles 含 `link:` 到私有路径的皮肤插件（maid-atelier），link 失效后 dsh 启动即失败。**解决：打包版用独立 DSH_HOME（`userData/dsh-home`）**，与命令行 dsh 配置完全隔离。
 3. **用户 `.npmrc` 的 `python` 配置警告**：旧 node-gyp 时代的 `python2/python/python3` 键，npm 新版本不识别，删除即可。
 4. **npmmirror 的 Electron SHASUMS256.txt 带 `*` 前缀**导致 node-gyp 校验失败（`local checksum ... not match remote undefined`），官方 electronjs.org 的 SHASUMS 无星号可正常使用——仅影响手动 rebuild 场景（本项目 N-API 模块无需 rebuild）。
+5. **electron-builder#8149（winCodeSign 解压符号链接失败）已有官方修复**：24.13.3 踩坑，需自带 `build/rcedit-x64.exe` + `afterPack.js` 钩子 + `signAndEditExecutable: false` 绕开；**26.x 起内置 `resedit`（纯 JS PE 资源编辑）替代 rcedit 流程，winCodeSign 改为按平台分发且仅签名时下载**。2026-08 已升级 `electron-builder ^26.15.3`，删除 afterPack.js / rcedit-x64.exe / 相关配置，打包链完全回归默认。
 
 ### 2.5 备选方案对比（供后续参考）
 

@@ -140,8 +140,8 @@ Bigfish.exe --expose-internals <resources>/dsh/node_modules/@deepseek-ai/dsh/lib
 - `asar: false`（原样目录，历史上调试方便；electron-builder 建议启用，暂未改）
 - `npmRebuild: false`（N-API 模块无需 rebuild）
 - `extraResources`：`dsh-bundle/node_modules` → `resources/dsh/node_modules`（后端依赖进包）
-- `afterPack.js`：`rcedit` 给 exe 嵌图标 + 版本信息（版本号自动读 package.json；绕开 electron-builder#8149）
-- CI（GitHub Actions）：三平台矩阵，node 24，`npm install` + `dsh-bundle npm install --omit=dev` 后直接打包（**无 node-runtime 步骤、无 rebuild 步骤**）
+- 图标/版本信息：electron-builder ≥26 内置 `resedit`（纯 JS PE 资源编辑）自动写入，**无需 afterPack 钩子**（旧版依赖 winCodeSign 归档解压，在 Windows 上踩 #8149 符号链接问题，已随 26.x 修复）
+- CI（GitHub Actions）：三平台矩阵，node 24，`npm install` + `dsh-bundle npm install --omit=dev` 后直接打包（**无 node-runtime 步骤、无 rebuild 步骤、无打包钩子**）
 
 ### 6.3 体积
 
@@ -164,9 +164,9 @@ Bigfish.exe --expose-internals <resources>/dsh/node_modules/@deepseek-ai/dsh/lib
 | 后端诊断 | 无日志，失败只能等超时 | **backend.log 落盘 + 进程退出即时报错** |
 | 启动超时 | 90s（傻等） | 180s + 提前退出检测 |
 | 更新检查 | 启动 5s 后自动弹窗 | **托盘菜单手动触发** |
-| 版本管理 | package.json 0.1.0 / afterPack 硬编码 | **0.2.0，afterPack 读 package.json** |
+| 版本管理 | package.json 0.1.0 / afterPack 硬编码 | **0.2.0，electron-builder 26 自动注入** |
 | 残留清理 | 仅匹配 node.exe | 兼容 node.exe + Bigfish.exe |
-| 构建链 | 下载/准备 node-runtime + dsh-bundle | **仅 dsh-bundle**（CI 少 3 步） |
+| 构建链 | 下载/准备 node-runtime + dsh-bundle + 打包钩子 | **仅 dsh-bundle**（CI 少 3 步，无钩子） |
 | 维护成本 | 手动跟进 Node 版本、三平台准备运行时 | Node 随 Electron 自动跟进 |
 | 兼容层 | — | `--expose-internals`（HMR 兼容定制 Node） |
 
@@ -179,7 +179,6 @@ Bigfish/
 ├── main.js                  # Electron 主进程（994 行）：后端 + 窗口 + 托盘 + 桌宠 + 通知 + 更新
 ├── pet.html / pet.js / pet-preload.js    # 桌面萌宠（透明悬浮窗 + 动画 + 点击穿透）
 ├── welcome.html / welcome.js / welcome-preload.js  # 新手向导
-├── afterPack.js             # 打包后钩子：rcedit 嵌图标/版本（版本读 package.json）
 ├── make-icons.js            # 图标生成脚本
 ├── remove-pet-bg.js / update-pet-frames.js  # 萌宠素材工具
 ├── download-electron.js     # electron 二进制下载兜底（旧探测脚本，可清理）
@@ -188,7 +187,7 @@ Bigfish/
 ├── package-lock.json        # 锁文件（v0.2.0）
 ├── dsh-bundle/              # 后端生产依赖清单（@deepseek-ai/dsh，本地安装 node_modules）
 ├── bundled-skills/          # 预装 5 技能：图片识别/PPT/文档总结/写作/翻译
-├── build/                   # 图标源 + rcedit-x64.exe
+├── build/                   # 图标源 + NSIS 安装器脚本（installer.nsh）
 ├── assets/                  # 运行时图标 + 萌宠动画帧（pet/）
 ├── docs/                    # 分享存档 + 升级评估 + 排障记录 + 本文档
 └── .github/workflows/build.yml  # CI 三平台打包

@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "electron": "41.10.1",
-    "electron-builder": "^24.0.0"
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.bigfish.app",
@@ -31,7 +31,6 @@
     },
     "asar": false,
     "npmRebuild": false,
-    "afterPack": "afterPack.js",
     "files": [
       "**/*",
       "!node_modules/**",
@@ -45,7 +44,6 @@
       "!gitpush/**",
       "!download-electron.js",
       "!make-icons.js",
-      "!afterPack.js",
       "!remove-pet-bg.js",
       "!update-pet-frames.js",
       "!README.md",
@@ -61,8 +59,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "build/icon.ico",
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
