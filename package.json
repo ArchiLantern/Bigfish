@@ -29,7 +29,10 @@
     "directories": {
       "output": "dist"
     },
-    "asar": false,
+    "asar": true,
+    "asarUnpack": [
+      "bundled-skills/**"
+    ],
     "npmRebuild": false,
     "files": [
       "**/*",

@@ -137,7 +137,7 @@ Bigfish.exe --expose-internals <resources>/dsh/node_modules/@deepseek-ai/dsh/lib
 
 ### 6.2 打包配置要点（package.json `build`）
 
-- `asar: false`（原样目录，历史上调试方便；electron-builder 建议启用，暂未改）
+- `asar: true`：应用代码/资源归档为单个 `app.asar`（防篡改、减少文件数）；`asarUnpack: ["bundled-skills/**"]` 将预装技能保持真实目录（dsh 子进程为纯 Node 模式，不经过 Electron 的 asar 补丁，必须解包）
 - `npmRebuild: false`（N-API 模块无需 rebuild）
 - `extraResources`：`dsh-bundle/node_modules` → `resources/dsh/node_modules`（后端依赖进包）
 - 图标/版本信息：electron-builder ≥26 内置 `resedit`（纯 JS PE 资源编辑）自动写入，**无需 afterPack 钩子**（旧版依赖 winCodeSign 归档解压，在 Windows 上踩 #8149 符号链接问题，已随 26.x 修复）
@@ -208,7 +208,7 @@ Bigfish/
 
 1. **`--open <path>` 与右键菜单「用 Bigfish 打开」是半成品**：目前只唤起窗口 + 通知，未把文件内容交给 AI（可通过 dsh API 注入）
 2. **完成通知是启发式**（mtime 轮询），误报/漏报无法完全避免；后续可对接 dsh 官方事件
-3. **asar 仍关闭**（electron-builder 建议开启）；开启可防篡改、减少文件数，需回归验证
+3. **asar 已开启**（v0.2.0，`bundled-skills` 解包）；后续若 dsh 新增"子进程需直读的应用内资源"，记得同步加入 `asarUnpack`
 4. **latest.json 待发布时同步**（v0.2.0 版本 + 新 release URL）
 5. 背景图 CSS 注入依赖 DSH UI 类名（`_sidebarCol` 等），**每次 dsh 升级后需目视验证**
 6. dsh-bundle 建议提交 `package-lock.json`（当前无锁，依赖版本漂移风险）
