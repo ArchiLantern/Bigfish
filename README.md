@@ -44,9 +44,10 @@ whenToUse: 用户什么时候应该用到它
 
 ```
 ┌───────────────────────────────────────────────┐
-│  Electron 主进程 (main.js)                     │
+│  Electron 主进程 (main.js, Electron 41)        │
 │   1. 找一个空闲的 127.0.0.1 端口               │
-│   2. 用捆绑的 Node 拉起 dsh --profile web      │
+│   2. 以 ELECTRON_RUN_AS_NODE 模式拉起 dsh      │
+│      （复用 Electron 内置的 Node 24，无需捆绑） │
 │   3. 轮询直到后端就绪                           │
 │   4. BrowserWindow 加载 http://127.0.0.1:端口  │
 │   + 托盘 / 快捷键 / 萌宠 / 向导 / 通知         │
@@ -55,9 +56,11 @@ whenToUse: 用户什么时候应该用到它
 
 后端复用 `@deepseek-ai/dsh` 这个 npm 包，与命令行版完全一致；桌面版只是套了一层原生窗口。后端只监听 `127.0.0.1`（CLI 源码禁止 `0.0.0.0`，安全边界现成）。
 
-## 为什么捆绑 Node 运行时
+## 为什么不再捆绑 Node 运行时
 
-`@deepseek-ai/dsh` 需要 **Node ≥ 22**（用到 `node:zlib.createZstdDecompress`、`node:module.stripTypeScriptTypes`），而 Electron 33 自带的 Node 是 20.18。因此打包版会捆绑一个真实的 Node v24 运行时，用它跑 dsh（同时让原生模块 ABI 与依赖安装时的版本完全匹配）。
+早期版本（Electron 33，自带 Node 20.18）不满足 `@deepseek-ai/dsh` 的 **Node ≥ 22** 要求，因此打包版捆绑了一个独立的 Node v24 运行时（约 70MB）。**本次升级到 Electron 41**（自带 Node 24.18，满足 dsh 的 `^22.19.0 || >=24.0.0`）后，直接用 `ELECTRON_RUN_AS_NODE` 让 Electron 可执行文件以纯 Node 模式运行 dsh 后端，不再需要捆绑 Node——安装包更小、构建链更简单。
+
+> 原生模块说明：dsh 依赖的 node-pty 1.1.0 / koffi / sharp 均为 **N-API（Node-API）** 模块，与 Node/Electron 的 ABI 无关，标准 Node 安装的产物在 Electron 内置 Node 下直接可用，无需 `electron-rebuild`。
 
 ## 开发运行
 
@@ -75,22 +78,7 @@ npm start
 
 ## 打包
 
-### 0. 准备 Node 运行时（必需）
-
-打包版需要 `node-runtime/node.exe`（Node ≥22）。二选一：
-
-```bash
-# 方式 A：直接复制系统 Node（最简单）
-mkdir node-runtime
-copy "C:\Program Files\nodejs\node.exe" node-runtime\node.exe
-
-# 方式 B：自动下载便携版 v24 并解压（Windows）
-node download-node.js
-```
-
-macOS / Linux 同理，把本机 `node` 二进制放到 `node-runtime/node`。
-
-### 0.5 准备 dsh 依赖（必需）
+### 0. 准备 dsh 依赖（必需）
 
 Bigfish 用一份独立的**纯生产依赖**跑后端（避免 electron-builder 丢弃 rc 预发布版本的包）：
 
@@ -99,6 +87,13 @@ cd dsh-bundle
 npm install --omit=dev     # 安装 @deepseek-ai/dsh 及其生产依赖
 cd ..
 ```
+
+> 提示：如果你本地已通过 `npx dsh` 跑过 DeepSeek Harness，也可以直接把 npx 缓存里的依赖树复制过来，省去下载：
+>
+> ```bash
+> # Windows（npx 缓存位置视 node 安装目录而定）
+> xcopy /E /I "D:\nodejs\cache\_npx\<npx缓存目录>\node_modules" dsh-bundle\node_modules
+> ```
 
 ### 1. 打包
 
@@ -110,7 +105,7 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 
 产物输出到 `dist/`。
 
-> 原生依赖（node-pty / sharp / koffi 等）需在各自目标平台上构建，跨平台产物请在对应平台的机器或 CI 上打包。
+> 原生依赖（node-pty / sharp / koffi）均为 N-API 模块，标准 npm install 即可，无需平台编译工具链。
 
 ## 图标 & 萌宠
 
@@ -129,9 +124,9 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 
 - 从本仓库的 **GitHub Releases** 页面下载 `Bigfish Setup x.y.z.exe`
 
-**安装使用**：双击 exe → 按向导安装 → 桌面/开始菜单出现「Bigfish」→ 双击即用（已内置 Node 运行时，无需装 Node）。
+**安装使用**：双击 exe → 按向导安装 → 桌面/开始菜单出现「Bigfish」→ 双击即用（无需安装 Node）。
 
-> ⚠️ 安装包约 160MB，超过 GitHub 仓库单文件 100MB 上限，请用 **GitHub Releases** 分发（附件上限 2GB）。
+> ⚠️ 安装包约 90MB，超过 GitHub 仓库单文件 100MB 上限的风险已大幅缓解；仍建议用 **GitHub Releases** 分发（附件上限 2GB）。
 
 ## 目录结构
 
@@ -143,7 +138,6 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 ├── make-icons.js      # 图标生成脚本（npm run icons）
 ├── remove-pet-bg.js   # 萌宠抠背景脚本
 ├── update-pet-frames.js # 萌宠帧缩放脚本
-├── download-node.js   # 下载便携版 Node v24（打包前置）
 ├── download-electron.js # electron 二进制下载兜底
 ├── setup-linux.sh     # Linux 一键准备脚本
 ├── package.json       # 依赖 + electron-builder 打包配置（win/mac/linux）

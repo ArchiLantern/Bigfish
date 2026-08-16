@@ -18,6 +18,15 @@
  *   - launch at login, and a Windows "Open with Bigfish" context menu
  */
 
+// 防御：ELECTRON_RUN_AS_NODE 是给 dsh 子进程用的。若残留到主进程环境里，
+// `electron .` 会以纯 Node 模式运行本文件（require('electron') 返回二进制
+// 路径而非 API），给出明确提示而不是诡异的 TypeError。
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  console.error('[bigfish] 检测到环境变量 ELECTRON_RUN_AS_NODE=1（通常来自诊断/测试残留）。');
+  console.error('[bigfish] 请在当前终端执行: Remove-Item Env:ELECTRON_RUN_AS_NODE （Linux: unset ELECTRON_RUN_AS_NODE），然后重新运行 npm start。');
+  process.exit(1);
+}
+
 const {
   app, BrowserWindow, shell, dialog, Tray, Menu, globalShortcut,
   nativeImage, Notification, ipcMain, screen,
@@ -32,10 +41,11 @@ const os = require('node:os');
 
 const APP_NAME = 'Bigfish';
 const HOST = '127.0.0.1';
-const READY_TIMEOUT_MS = 90 * 1000;
+// 首次启动可能因杀毒软件扫描 / 依赖初始化较慢，放宽到 180s
+const READY_TIMEOUT_MS = 180 * 1000;
 const IDLE_NOTIFY_MS = 30 * 1000; // backend quiet for this long after activity => "done"
 
-// 检查更新：从 latest.json 读取最新版本（方法二，启动时查一次）
+// 检查更新：从 latest.json 读取最新版本（托盘菜单「检查更新」手动触发）
 const UPDATE_JSON_URL = 'https://raw.githubusercontent.com/turtle2209/Bigfish/main/latest.json';
 
 /** @type {import('node:child_process').ChildProcess | null} */
@@ -114,15 +124,40 @@ function bundledSkillDir() {
   return path.join(app.getAppPath(), 'bundled-skills');
 }
 
+/**
+ * 应用自己的 DSH_HOME 目录。
+ *
+ * 打包版必须用独立目录（userData/dsh-home），不能共用命令行 dsh 的
+ * `~/.dsh`：用户本机的 profile 可能引用外部插件（如 link 安装的皮肤，
+ * 路径是本机私有目录），一旦失效会导致 dsh 后端启动失败（plugin tree
+ * 加载失败）。独立 DSH_HOME 让打包版行为可预测、开箱即用。
+ *
+ * 开发模式沿用系统默认（~/.dsh），方便复用本机 dsh 配置调试。
+ */
+function dshHomeOverride() {
+  if (app.isPackaged) {
+    return path.join(app.getPath('userData'), 'dsh-home');
+  }
+  const env = process.env.DSH_HOME && process.env.DSH_HOME.trim() !== '' ? process.env.DSH_HOME : '';
+  return env;
+}
+
 function resolveRuntime() {
   const bin = dshBinPath();
   const env = { ...process.env, DSH_BUNDLED_SKILL_DIR: bundledSkillDir() };
+  const dshHome = dshHomeOverride();
+  if (dshHome) env.DSH_HOME = dshHome;
   if (!app.isPackaged) {
     return { command: process.env.DSH_NODE || 'node', args: [bin], env };
   }
-  const nodeBin = process.platform === 'win32' ? 'node.exe' : 'node';
-  const nodeExe = path.join(process.resourcesPath, 'node-runtime', nodeBin);
-  return { command: nodeExe, args: [bin], env };
+  // Electron 41+ 内置 Node ≥24（满足 dsh 的 `^22.19.0 || >=24.0.0`），
+  // 用 ELECTRON_RUN_AS_NODE 让 Electron 可执行文件以纯 Node 模式运行 dsh，
+  // 不再需要捆绑独立的 node-runtime/。
+  // --expose-internals：dsh 的 HMR 服务要访问 Node internal 模块。标准 Node
+  // 下靠 node-addon-require-builtin 探测，但该插件在 Electron 定制 Node 下
+  // 失败（内部结构差异），必须显式开启此标志（cordis 检测到后走原生
+  // require 路径）。注意它是 Node 启动标志，必须放在脚本路径之前。
+  return { command: process.execPath, args: ['--expose-internals', bin], env: { ...env, ELECTRON_RUN_AS_NODE: '1' } };
 }
 
 function waitForReady(p, timeoutMs = READY_TIMEOUT_MS) {
@@ -153,12 +188,17 @@ function waitForReady(p, timeoutMs = READY_TIMEOUT_MS) {
 function cleanupStaleDsh() {
   try {
     if (process.platform === 'win32') {
-      const script = "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -like '*dsh/lib/bin.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }";
+      // 兼容两种形态：开发版（node.exe）与打包版（ELECTRON_RUN_AS_NODE 下进程名是 Bigfish.exe）
+      const script = "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe' -or $_.Name -like 'Bigfish*.exe') -and $_.CommandLine -like '*dsh/lib/bin.js*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }";
       spawn('powershell', ['-NoProfile', '-Command', script], { stdio: 'ignore', windowsHide: true });
     } else {
       spawn('pkill', ['-f', 'dsh/lib/bin.js'], { stdio: 'ignore' });
     }
   } catch { /* best effort */ }
+}
+
+function backendLogPath() {
+  return path.join(app.getPath('userData'), 'backend.log');
 }
 
 async function startDsh() {
@@ -168,13 +208,27 @@ async function startDsh() {
   const rt = resolveRuntime();
   const args = [...rt.args, '--profile', 'web', '--host', HOST, '--port', String(port)];
   console.log(`[bigfish] starting backend on http://${HOST}:${port}`);
+  // 后端输出写入日志文件（GUI 程序没有控制台，出错时靠它诊断）
+  let logFd = null;
+  try {
+    fs.mkdirSync(path.dirname(backendLogPath()), { recursive: true });
+    logFd = fs.openSync(backendLogPath(), 'a');
+    fs.writeSync(logFd, `\n===== Bigfish backend started ${new Date().toISOString()} =====\n`);
+  } catch { /* 日志写不了就算了 */ }
   dshProcess = spawn(rt.command, args, {
     env: rt.env,
-    stdio: ['ignore', 'inherit', 'inherit'],
+    stdio: logFd ? ['ignore', logFd, logFd] : ['ignore', 'inherit', 'inherit'],
     windowsHide: true,
   });
   dshProcess.once('error', (err) => console.error('[bigfish] failed to spawn backend:', err));
-  await waitForReady(port);
+  // 后端进程提前退出则立即失败，避免傻等满超时（"等几分钟才报错"的体验问题）；
+  // 失败原因见 backend.log
+  const exitEarly = new Promise((_, reject) => {
+    dshProcess.once('exit', (code) => reject(
+      new Error(`Backend process exited early (exit code ${code}) — 详见日志：${backendLogPath()}`),
+    ));
+  });
+  await Promise.race([waitForReady(port), exitEarly]);
 }
 
 function stopDsh() {
@@ -263,7 +317,7 @@ function uninstall() {
 }
 
 // ---------------------------------------------------------------------------
-// 检查更新（方法二）：启动时拉取 latest.json，发现新版本就提示下载
+// 检查更新：托盘菜单手动拉取 latest.json，发现新版本就提示下载
 // ---------------------------------------------------------------------------
 function compareVersions(a, b) {
   const pa = String(a).split('.').map(Number);
@@ -277,8 +331,14 @@ function compareVersions(a, b) {
   return 0;
 }
 
-function checkForUpdates() {
-  if (!app.isPackaged) return; // 开发模式不检查
+function checkForUpdates(manual = false) {
+  if (!app.isPackaged) {
+    // 开发模式不检查；手动触发时给个提示，避免"点了没反应"
+    if (manual) {
+      dialog.showMessageBox({ type: 'info', title: APP_NAME, message: '开发模式不检查更新', detail: '只有安装版（打包后）才支持检查更新。' });
+    }
+    return;
+  }
   const req = https.get(UPDATE_JSON_URL, { timeout: 10000 }, (res) => {
     if (res.statusCode !== 200) {
       res.resume();
@@ -302,20 +362,20 @@ function checkForUpdates() {
             defaultId: 0,
           });
           if (choice === 0 && url) shell.openExternal(url);
+        } else if (manual) {
+          dialog.showMessageBox({ type: 'info', title: APP_NAME, message: '已是最新版本', detail: `当前版本 v${current}` });
         }
       } catch { /* JSON 解析失败就忽略 */ }
     });
   });
-  req.on('error', () => { /* 网络失败就静默 */ });
+  req.on('error', () => { if (manual) notify(APP_NAME, '检查更新失败（网络异常）'); });
   req.setTimeout(10000, () => { req.destroy(); });
 }
 
 // Heuristic "task completed" detector: watch DSH_HOME (excluding the static
 // profiles/ tree) for writes; after a burst of activity followed by idle, notify.
 function dshHome() {
-  return process.env.DSH_HOME && process.env.DSH_HOME.trim() !== ''
-    ? process.env.DSH_HOME
-    : path.join(os.homedir(), '.dsh');
+  return dshHomeOverride() || path.join(os.homedir(), '.dsh');
 }
 
 // ---------------------------------------------------------------------------
@@ -714,6 +774,8 @@ function rebuildTrayMenu() {
       ],
     },
     { type: 'separator' },
+    { label: '检查更新', click: () => checkForUpdates(true) },
+    { type: 'separator' },
     { label: '卸载 Bigfish', click: () => uninstall() },
     { label: '退出', click: () => { quitting = true; app.quit(); } },
   ]);
@@ -827,9 +889,18 @@ if (!gotLock) {
         console.log('[bigfish] window created (retry)');
       } catch (err2) {
         const message = err2 && err2.message ? err2.message : String(err2);
+        // 读取后端日志尾部，帮助定位失败原因
+        let logTail = '';
+        try {
+          const content = fs.readFileSync(backendLogPath(), 'utf8');
+          logTail = content.split('\n').slice(-15).join('\n').trim();
+        } catch { /* 没有日志 */ }
         dialog.showErrorBox(
           APP_NAME,
-          `Failed to start the DeepSeek Harness backend:\n\n${message}\n\n提示：如果这是重启后出现的问题，请先在任务管理器结束所有 Bigfish / node 进程后再重试。`,
+          `Failed to start the DeepSeek Harness backend:\n\n${message}\n\n` +
+          (logTail ? `后端日志（最后几行）：\n${logTail}\n\n` : '') +
+          `日志文件：${backendLogPath()}\n\n` +
+          `提示：首次启动可能因杀毒软件扫描较慢，可稍等重试；如反复失败，请先在任务管理器结束所有 Bigfish / node 进程后再试。`,
         );
         app.quit();
         return;
@@ -839,7 +910,7 @@ if (!gotLock) {
     createTray();
     registerShortcuts();
     startCompletionWatcher();
-    setTimeout(checkForUpdates, 5000);
+    // 更新检查改为手动：托盘菜单「检查更新」
     if (settings.petEnabled) {
       createPetWindow();
       scheduleWander();

@@ -1,6 +1,6 @@
 {
   "name": "bigfish",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bigfish — Electron desktop shell for DeepSeek Harness",
   "private": true,
   "main": "main.js",
@@ -19,10 +19,9 @@
     "dist:linux": "electron-builder --linux",
     "icons": "node make-icons.js"
   },
-  "dependencies": {},
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron": "41.10.1",
+    "electron-builder": "^24.0.0"
   },
   "build": {
     "appId": "com.bigfish.app",
@@ -44,23 +43,15 @@
       "!.dsh-home*/**",
       "!node-runtime/**",
       "!gitpush/**",
-      "!probe-electron.js",
       "!download-electron.js",
-      "!download-node.js",
       "!make-icons.js",
       "!afterPack.js",
       "!remove-pet-bg.js",
-      "!analyze-pet.js",
       "!update-pet-frames.js",
-      "!f00eacea082fad95a74d30b4206e1954.jpg",
       "!README.md",
       "!.gitignore"
     ],
     "extraResources": [
-      {
-        "from": "node-runtime",
-        "to": "node-runtime"
-      },
       {
         "from": "dsh-bundle/node_modules",
         "to": "dsh/node_modules"

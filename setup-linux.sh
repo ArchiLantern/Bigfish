@@ -12,9 +12,10 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 echo "✅ Node $(node -v)"
 
-# 2. 原生模块需要编译工具（sharp / koffi / node-pty 若无预编译）
+# 2. 原生模块（node-pty / sharp / koffi）均为 N-API，标准安装即可；
+#    保险起见仍安装编译工具（某些平台 prebuild 下载失败时回退源码编译）
 if ! command -v gcc >/dev/null 2>&1; then
-  echo "安装 build-essential（原生模块编译需要）..."
+  echo "安装 build-essential（原生模块编译兜底需要）..."
   sudo apt-get update -y
   sudo apt-get install -y build-essential python3
 fi

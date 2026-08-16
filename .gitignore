@@ -11,4 +11,4 @@ electron-dist/
 release/
 *.log
 .DS_Store
-dsh-bundle/node_modules/
+dsh-bundle/node_modules

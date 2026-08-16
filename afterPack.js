@@ -21,6 +21,7 @@ exports.default = async function afterPack(context) {
     return;
   }
   const exe = path.join(context.appOutDir, context.packager.appInfo.productFilename + '.exe');
+  const version = (require('./package.json').version || '0.1.0').split('-')[0] + '.0';
   execFileSync(
     rcedit,
     [
@@ -29,8 +30,8 @@ exports.default = async function afterPack(context) {
       '--set-version-string', 'ProductName', 'Bigfish',
       '--set-version-string', 'FileDescription', 'Bigfish',
       '--set-version-string', 'CompanyName', 'Bigfish',
-      '--set-file-version', '0.1.0.0',
-      '--set-product-version', '0.1.0.0',
+      '--set-file-version', version,
+      '--set-product-version', version,
     ],
     { stdio: 'inherit' },
   );

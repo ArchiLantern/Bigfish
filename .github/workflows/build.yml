@@ -17,9 +17,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
 
-      # Linux 需要的系统库（Electron 原生模块 / AppImage 打包）
+      # Linux 需要的系统库（AppImage 打包）
       - name: Install system deps (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -35,21 +35,6 @@ jobs:
         run: |
           cd dsh-bundle
           npm install --omit=dev
-
-      # 准备各平台的 node-runtime（复制 runner 自带的 Node 二进制）
-      - name: Prepare node-runtime (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          mkdir -p node-runtime
-          cp "$(which node)" node-runtime/node.exe
-
-      - name: Prepare node-runtime (macOS/Linux)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          mkdir -p node-runtime
-          cp "$(which node)" node-runtime/node
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
