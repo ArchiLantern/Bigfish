@@ -45,7 +45,6 @@
       "!.dsh-home*/**",
       "!node-runtime/**",
       "!gitpush/**",
-      "!download-electron.js",
       "!make-icons.js",
       "!remove-pet-bg.js",
       "!update-pet-frames.js",

@@ -143,7 +143,6 @@ npm run dist:linux    # Linux AppImage + deb（需在 Linux 上构建）
 ├── make-icons.js      # 图标生成脚本（npm run icons）
 ├── remove-pet-bg.js   # 萌宠抠背景脚本
 ├── update-pet-frames.js # 萌宠帧缩放脚本
-├── download-electron.js # electron 二进制下载兜底
 ├── setup-linux.sh     # Linux 一键准备脚本
 ├── package.json       # 依赖 + electron-builder 打包配置（win/mac/linux）
 ├── dsh-bundle/        # 后端生产依赖清单（打包时 npm install）

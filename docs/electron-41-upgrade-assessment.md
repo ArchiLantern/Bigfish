@@ -162,7 +162,7 @@ Electron 官方支持的环境变量：设置为 `1` 后，**Electron 可执行�
 ### 2.7 后续建议
 
 1. **Windows 实机验证**（见 2.4 待验证项），通过后提交代码
-2. 顺手可做：`latest.json` 版本号与 package.json 对齐；提交 dsh-bundle/package-lock.json；`download-electron.js` 若不再需要可删
+2. 顺手可做：`latest.json` 版本号与 package.json 对齐；提交 dsh-bundle/package-lock.json（`download-electron.js` 已删除）
 3. 若安装包降到 90MB 以下（<100MB），可考虑直接随仓库分发，但 Releases 仍是更优渠道
 
 ---

@@ -181,7 +181,6 @@ Bigfish/
 ├── welcome.html / welcome.js / welcome-preload.js  # 新手向导
 ├── make-icons.js            # 图标生成脚本
 ├── remove-pet-bg.js / update-pet-frames.js  # 萌宠素材工具
-├── download-electron.js     # electron 二进制下载兜底（旧探测脚本，可清理）
 ├── setup-linux.sh           # Linux 一键准备脚本
 ├── package.json             # 依赖 + electron-builder 打包配置
 ├── package-lock.json        # 锁文件（v0.2.0）
